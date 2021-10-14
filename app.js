@@ -1,4 +1,4 @@
-import express, { response } from 'express';
+import express from 'express';
 import cors from 'cors';
 import pg from 'pg';
 import joi from 'joi';
@@ -24,7 +24,7 @@ app.get('/categories', (req, res) => {
     connection.query('SELECT * FROM categories')
         .then(result => res.send(result.rows))
         .catch(() => res.sendStatus(400));
-})
+});
 
 app.post('/categories', (req,res) => {
     const name = req.body.name;
@@ -52,6 +52,38 @@ app.post('/categories', (req,res) => {
             }
         })
         .catch(error => res.send(error));
-})
+});
+
+app.get('/games', (req, res) => {
+    const name = req.query.name;
+
+    if (name === undefined) {
+        connection.query('SELECT * FROM games')
+            .then(result => res.send(result.rows))
+            .catch(() => res.sendStatus(400));
+        return;
+    }
+    connection.query(`SELECT * FROM games WHERE LOWER(name) LIKE LOWER($1)`, [`${name}%`])
+        .then(result => {
+            let games = [];
+            let response = result.rows;
+            if (response.length === 0) {
+                res.send(response);
+                return;
+            }
+            response.map(game => {
+                connection.query(`SELECT name FROM categories WHERE id = $1`, [game.categoryId])
+                    .then(() => {
+                        games.push({
+                            ...game,
+                            categoryName: result,
+                        });
+                    })
+            })
+            res.send(games);
+            return;
+        })
+        .catch(() => res.sendStatus(400));
+});
 
 app.listen(4000);

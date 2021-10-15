@@ -23,6 +23,10 @@ const connection = new Pool(
 app.get('/categories', async (req, res) => {
     try {
         const result = await connection.query('SELECT * FROM categories');
+        if (result.rowCount === 0) {
+            res.send('Nenhuma categoria registrada');
+            return;
+        }
         res.send(result.rows);
     } catch {
         res.sendStatus(400);
@@ -62,7 +66,11 @@ app.get('/games', async (req, res) => {
     try {
         if (name === undefined) {
             const result = await connection.query('SELECT games.id AS id, games.name AS name, image, "stockTotal", "categoryId", "pricePerDay", categories.name AS "categoryName" FROM games INNER JOIN categories ON games."categoryId" = categories.id');
-            res.send(result.rows);
+            if (result.rowCount === 0) {
+                res.send('Nenhum jogo registrado');
+                return;
+            }
+            es.send(result.rows);
         } else {
             const result = await connection.query('SELECT games.id AS id, games.name AS name, image, "stockTotal", "categoryId", "pricePerDay", categories.name AS "categoryName" FROM games INNER JOIN categories ON games."categoryId" = categories.id WHERE LOWER(games.name) LIKE LOWER($1)', [`${name}%`]);
             if (result.rowCount === 0) {
@@ -125,8 +133,31 @@ app.post('/games', async (req, res) => {
     } catch {
         res.sendStatus(400)
     }
-})
+});
 
+app.get('/customers', async (req, res) => {
+    const cpf = req.query.cpf;
 
+    try {
+        if (cpf === undefined) {
+            const result = await connection.query('SELECT * FROM customers');
+            if(result.rowCount === 0) {
+                res.send('Nenhum cliente registrado');
+                return;
+            }
+            res.send(result.rows);
+            return;
+        } else {
+            const result = await connection.query('SELECT * FROM customers WHERE cpf LIKE $1', [`${cpf}%`]);
+            if(result.rowCount === 0) {
+                res.send('Não existem clientes registrados com este CPF');
+                return;
+            }
+            res.send(result.rows);
+        }
+    } catch {
+        res.sendStatus(400);
+    }
+});
 
 app.listen(4000);

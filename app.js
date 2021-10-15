@@ -221,4 +221,51 @@ app.post('/customers', async (req, res) => {
     }
 });
 
+app.put('/customers/:customerId', async (req, res) => {
+    const customerId = parseInt(req.params.customerId);
+
+    const {
+        name,
+        phone,
+        cpf,
+        birthday
+    } = req.body;
+
+    const updateCustomerSchema = joi.object(
+        {
+            name: joi.string().min(1).required(),
+            phone: joi.string().pattern(/^[0-9]+$/).min(10).max(11).required(),
+            cpf: joi.string().pattern(/^[0-9]+$/).length(11).required(),
+            birthday: joi.string().pattern(/^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$/).required()
+        }
+    );
+
+    const { error } = updateCustomerSchema.validate(
+        {
+            name: name,
+            phone: phone,
+            cpf: cpf,
+            birthday: birthday
+        }
+    );
+
+    if (error) {
+        res.status(400).send(error.details[0].message);
+        return;
+    }
+
+    try {
+        const cpfCheck = await connection.query('SELECT cpf FROM customers WHERE cpf = $1', [cpf]);
+        if (cpfCheck.rowCount > 0) {
+            res.sendStatus(409);
+            return;
+        }
+
+        await connection.query('UPDATE customers SET name = $1, phone = $2, cpf = $3, birthday = $4 WHERE id = $5', [name, phone, cpf, birthday, customerId]);
+        res.sendStatus(200);
+    } catch {
+        res.sendStatus(400);
+    }
+});
+
 app.listen(4000);

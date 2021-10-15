@@ -29,7 +29,7 @@ app.get('/categories', async (req, res) => {
         }
         res.send(result.rows);
     } catch {
-        res.sendStatus(400);
+        res.sendStatus(500);
     }
 });
 
@@ -56,7 +56,7 @@ app.post('/categories', async (req,res) => {
         await connection.query('INSERT INTO categories (name) VALUES ($1)', [name]);
         res.sendStatus(201)
     } catch {
-        res.sendStatus(400);
+        res.sendStatus(500);
     }
 });
 
@@ -80,7 +80,7 @@ app.get('/games', async (req, res) => {
             res.send(result.rows);
         }
     } catch {
-        res.sendStatus(400);
+        res.sendStatus(500);
     }
 });
 
@@ -132,7 +132,7 @@ app.post('/games', async (req, res) => {
         await connection.query(`INSERT INTO games (name, image, "stockTotal", "categoryId", "pricePerDay") VALUES ($1, $2, $3, $4, $5)`, [name, image, stockTotal, categoryId, pricePerDay]);
         res.sendStatus(201)
     } catch {
-        res.sendStatus(400)
+        res.sendStatus(500)
     }
 });
 
@@ -157,7 +157,7 @@ app.get('/customers', async (req, res) => {
             res.send(result.rows);
         }
     } catch {
-        res.sendStatus(400);
+        res.sendStatus(500);
     }
 });
 
@@ -172,7 +172,7 @@ app.get('/customers/:customerId', async (req, res) => {
         }
         res.send(result.rows[0]);
     } catch {
-        res.sendStatus(400);
+        res.sendStatus(500);
     }
 });
 
@@ -217,7 +217,7 @@ app.post('/customers', async (req, res) => {
         await connection.query('INSERT INTO customers (name, phone, cpf, birthday) VALUES ($1, $2, $3, $4)', [name, phone, cpf, birthday]);
         res.sendStatus(201);
     } catch {
-        res.sendStatus(404);
+        res.sendStatus(500);
     }
 });
 
@@ -264,7 +264,7 @@ app.put('/customers/:customerId', async (req, res) => {
         await connection.query('UPDATE customers SET name = $1, phone = $2, cpf = $3, birthday = $4 WHERE id = $5', [name, phone, cpf, birthday, customerId]);
         res.sendStatus(200);
     } catch {
-        res.sendStatus(400);
+        res.sendStatus(500);
     }
 });
 

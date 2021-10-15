@@ -20,13 +20,16 @@ const connection = new Pool(
     }
 );
 
-app.get('/categories', (req, res) => {
-    connection.query('SELECT * FROM categories;')
-        .then(result => res.send(result.rows))
-        .catch(() => res.sendStatus(400));
+app.get('/categories', async (req, res) => {
+    try {
+        const result = await connection.query('SELECT * FROM categories');
+        res.send(result.rows);
+    } catch {
+        res.sendStatus(400);
+    }
 });
 
-app.post('/categories', (req,res) => {
+app.post('/categories', async (req,res) => {
     const name = req.body.name;
     const categorySchema = joi.object(
         {
@@ -40,75 +43,36 @@ app.post('/categories', (req,res) => {
         return;
     }
 
-    connection.query('SELECT name FROM categories WHERE name = $1;', [name])
-        .then(result => {
-            if (result.rowCount > 0) {
-                res.sendStatus(409);
-                return;
-            } else {
-                connection.query('INSERT INTO categories (name) VALUES ($1);', [name])
-                    .then(() => res.sendStatus(201))
-                    .catch(() => res.sendStatus(400));
-            }
-        })
-        .catch(error => res.send(error));
+    try {
+        const result = await connection.query('SELECT name FROM categories WHERE name = $1;', [name]);
+        if (result.rowCount > 0) {
+            res.sendStatus(409);
+            return;
+        }
+        await connection.query('INSERT INTO categories (name) VALUES ($1);', [name]);
+        res.sendStatus(201)
+    } catch {
+        res.sendStatus(400);
+    }
 });
 
-app.get('/games', (req, res) => {
+app.get('/games', async (req, res) => {
     const name = req.query.name;
 
-    if (name === undefined) {
-        connection.query('SELECT * FROM games')
-            .then(result => {
-                let response = result.rows;
-                let games = [];
-                
-                response.map(game => {
-                    connection.query('SELECT name FROM categories WHERE id = $1;', [game.categoryId])
-                        .then((result) => {
-                            games.push({
-                                ...game,
-                                categoryName: result.rows[0].name
-                            });
-                            if (games.length === response.length) {
-                                res.send(games);
-                                return;
-                            }
-                        })
-                })
-            })
-            .catch(() => res.sendStatus(400));
-            return;
+    try {
+        if (name === undefined) {
+            const result = await connection.query('SELECT * FROM games');
+            res.send(result.rows);
+        } else {
+            const result = await connection.query('SELECT * FROM games WHERE LOWER(name) LIKE LOWER($1);', [`${name}%`]);
+            res.send(result.rows);
+        }
+    } catch {
+        res.sendStatus(400);
     }
-
-    connection.query('SELECT * FROM games WHERE LOWER(name) LIKE LOWER($1);', [`${name}%`])
-        .then(result => {
-            let response = result.rows;
-
-            if (result.rowCount === 0) {
-                res.send(response);
-                return;
-            } else {
-                let games = [];
-                response.map(game => {
-                    connection.query('SELECT name FROM categories WHERE id = $1;', [game.categoryId])
-                        .then((result) => {
-                            games.push({
-                                ...game,
-                                categoryName: result.rows[0].name
-                            });
-                            if (games.length === response.length) {
-                                res.send(games);
-                                return;
-                            }
-                        })
-                })
-            }
-        })
-        .catch(() => res.sendStatus(404));
 });
 
-app.post('/games', (req, res) => {
+app.post('/games', async (req, res) => {
     const {
         name,
         image,
@@ -139,27 +103,24 @@ app.post('/games', (req, res) => {
         return;
     }
 
-    connection.query(`SELECT id FROM categories WHERE id = $1;`, [categoryId])
-        .then(result => {
-            if (result.rowCount === 0) {
-                res.sendStatus(400);
-                return;
-            } else {
-                connection.query(`SELECT name FROM games WHERE name = $1;`, [name])
-                    .then(result => {
-                        if (result.rowCount > 0) {
-                            res.sendStatus(409);
-                            return;
-                        } else {
-                            connection.query(`INSERT INTO games (name, image, "stockTotal", "categoryId", "pricePerDay") VALUES ($1, $2, $3, $4, $5);`, [name, image, stockTotal, categoryId, pricePerDay])
-                                .then(() => res.sendStatus(201))
-                                .catch(() => res.sendStatus(404));
-                        }
-                    })
-                    .catch(error => res.send(error));
-            }
-        })
-        .catch(error => res.send(error));
+    try {
+        const categoryCheck = await connection.query(`SELECT id FROM categories WHERE id = $1;`, [categoryId]);
+        if (categoryCheck.rowCount === 0) {
+            res.sendStatus(400);
+            return;
+        }
+
+        const gameNameCheck = await connection.query(`SELECT name FROM games WHERE name = $1;`, [name]);
+        if (gameNameCheck.rowCount > 0) {
+            res.sendStatus(409);
+            return;
+        }
+
+        await connection.query(`INSERT INTO games (name, image, "stockTotal", "categoryId", "pricePerDay") VALUES ($1, $2, $3, $4, $5);`, [name, image, stockTotal, categoryId, pricePerDay]);
+        res.sendStatus(201)
+    } catch {
+        res.sendStatus(400)
+    }
 })
 
 app.listen(4000);

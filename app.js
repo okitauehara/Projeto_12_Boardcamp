@@ -95,13 +95,14 @@ app.post('/games', async (req, res) => {
 
     const gameSchema = joi.object(
         {
-            name: joi.string().min(1),
-            image: joi.string().pattern(/(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png)/),
-            stockTotal: joi.number().integer().min(1),
-            categoryId: joi.number().integer().min(1),
-            pricePerDay: joi.number().integer().min(1)
+            name: joi.string().min(1).required(),
+            image: joi.string().pattern(/(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png)/).required(),
+            stockTotal: joi.number().integer().min(1).required(),
+            categoryId: joi.number().integer().min(1).required(),
+            pricePerDay: joi.number().integer().min(1).required()
         }
     );
+
     const { error } = gameSchema.validate({
         name: name,
         image: image,
@@ -172,6 +173,51 @@ app.get('/customers/:customerId', async (req, res) => {
         res.send(result.rows[0]);
     } catch {
         res.sendStatus(400);
+    }
+});
+
+app.post('/customers', async (req, res) => {
+    const {
+        name,
+        phone,
+        cpf,
+        birthday
+    } = req.body;
+
+    const customerSchema = joi.object(
+        {
+            name: joi.string().min(1).required(),
+            phone: joi.string().pattern(/^[0-9]+$/).min(10).max(11).required(),
+            cpf: joi.string().pattern(/^[0-9]+$/).length(11).required(),
+            birthday: joi.string().pattern(/^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$/).required()
+        }
+    );
+
+    const { error } = customerSchema.validate(
+        {
+            name: name,
+            phone: phone,
+            cpf: cpf,
+            birthday: birthday
+        }
+    );
+
+    if (error) {
+        res.status(400).send(error.details[0].message);
+        return;
+    }
+
+    try {
+        const cpfCheck = await connection.query('SELECT cpf FROM customers WHERE cpf = $1', [cpf]);
+        if (cpfCheck.rowCount > 0) {
+            res.sendStatus(409);
+            return;
+        }
+
+        await connection.query('INSERT INTO customers (name, phone, cpf, birthday) VALUES ($1, $2, $3, $4)', [name, phone, cpf, birthday]);
+        res.sendStatus(201);
+    } catch {
+        res.sendStatus(404);
     }
 });
 

@@ -12,8 +12,8 @@ const { Pool } = pg;
 
 const connection = new Pool(
     {
-        user: 'postgres',
-        password: '123456',
+        user: 'bootcamp_role',
+        password: 'senha_super_hiper_ultra_secreta_do_role_do_bootcamp',
         host: 'localhost',
         port: 5432,
         database: 'boardcamp',
@@ -70,7 +70,7 @@ app.get('/games', async (req, res) => {
                 res.send('Nenhum jogo registrado');
                 return;
             }
-            es.send(result.rows);
+            res.send(result.rows);
         } else {
             const result = await connection.query('SELECT games.id AS id, games.name AS name, image, "stockTotal", "categoryId", "pricePerDay", categories.name AS "categoryName" FROM games INNER JOIN categories ON games."categoryId" = categories.id WHERE LOWER(games.name) LIKE LOWER($1)', [`${name}%`]);
             if (result.rowCount === 0) {

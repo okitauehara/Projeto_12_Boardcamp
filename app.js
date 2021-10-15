@@ -160,4 +160,19 @@ app.get('/customers', async (req, res) => {
     }
 });
 
+app.get('/customers/:customerId', async (req, res) => {
+    const customerId = parseInt(req.params.customerId);
+
+    try {
+        const result = await connection.query('SELECT * FROM customers WHERE id = $1', [customerId]);
+        if (result.rowCount === 0) {
+            res.sendStatus(404);
+            return;
+        }
+        res.send(result.rows[0]);
+    } catch {
+        res.sendStatus(400);
+    }
+});
+
 app.listen(4000);

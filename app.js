@@ -207,7 +207,7 @@ app.post('/customers', async (req, res) => {
             name: joi.string().min(1).required(),
             phone: joi.string().pattern(/^[0-9]+$/).min(10).max(11).required(),
             cpf: joi.string().pattern(/^[0-9]+$/).length(11).required(),
-            birthday: joi.string().pattern(/^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$/).required()
+            birthday: joi.date().iso().required()
         }
     );
 
@@ -431,6 +431,42 @@ app.post('/rentals/:id/return', async (req, res) => {
         const delayFee = daysDiff * game.rows[0].pricePerDay;
 
         await connection.query('UPDATE rentals SET "returnDate" = $1, "delayFee" = $2 WHERE id = $3', [returnDate.toLocaleDateString('en-CA'), delayFee <= 0 ? 0 : delayFee, rentalId]);
+        res.sendStatus(200);
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+});
+
+app.delete('/rentals/:id', async (req, res) => {
+    const rentalId = req.params.id;
+
+    const deleteRentalSchema = joi.object(
+        {
+            rentalId: joi.number().min(1).required()
+        }
+    );
+
+    const { error } = deleteRentalSchema.validate({ rentalId });
+
+    if (error) {
+        res.status(400).send(error.details[0].message);
+        return;
+    }
+
+    try {
+        const rentalIdCheck = await connection.query('SELECT * FROM rentals WHERE id = $1', [rentalId]);
+        if (rentalIdCheck.rowCount === 0) {
+            res.sendStatus(404);
+            return;
+        }
+
+        if (rentalIdCheck.rows[0].returnDate !== null) {
+            res.sendStatus(400);
+            return;
+        }
+
+        await connection.query('DELETE FROM rentals WHERE id = $1', [rentalId]);
         res.sendStatus(200);
     } catch (error) {
         console.log(error);

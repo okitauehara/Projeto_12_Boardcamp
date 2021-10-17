@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import pg from 'pg';
-import joi from 'joi';
+import { categorySchema, gameSchema, customerSchema, rentalSchema, idRentalSchema } from './schemas.js';
 
 const app = express();
 
@@ -16,7 +16,7 @@ const connection = new Pool(
         password: 'senha_super_hiper_ultra_secreta_do_role_do_bootcamp',
         host: 'localhost',
         port: 5432,
-        database: 'boardcamp',
+        database: 'boardcamp'
     }
 );
 
@@ -36,12 +36,8 @@ app.get('/categories', async (req, res) => {
 
 app.post('/categories', async (req,res) => {
     const name = req.body.name;
-    const categorySchema = joi.object(
-        {
-            name: joi.string().min(1).required()
-        }
-    );
-    const { error } = categorySchema.validate({name: name});
+
+    const { error } = categorySchema.validate({ name });
 
     if (error) {
         res.status(400).send(error.details[0].message);
@@ -67,14 +63,39 @@ app.get('/games', async (req, res) => {
 
     try {
         if (name === undefined) {
-            const result = await connection.query('SELECT games.id AS id, games.name AS name, image, "stockTotal", "categoryId", "pricePerDay", categories.name AS "categoryName" FROM games INNER JOIN categories ON games."categoryId" = categories.id');
+            const result = await connection.query(`
+            SELECT
+                games.id AS id,
+                games.name AS name,
+                image,
+                "stockTotal",
+                "categoryId",
+                "pricePerDay",
+                categories.name AS "categoryName"
+            FROM games
+            INNER JOIN categories
+            ON games."categoryId" = categories.id
+            `);
             if (result.rowCount === 0) {
                 res.send('Nenhum jogo registrado');
                 return;
             }
             res.send(result.rows);
         } else {
-            const result = await connection.query('SELECT games.id AS id, games.name AS name, image, "stockTotal", "categoryId", "pricePerDay", categories.name AS "categoryName" FROM games INNER JOIN categories ON games."categoryId" = categories.id WHERE LOWER(games.name) LIKE LOWER($1)', [`${name}%`]);
+            const result = await connection.query(`
+            SELECT
+                games.id AS id,
+                games.name AS name,
+                image,
+                "stockTotal",
+                "categoryId",
+                "pricePerDay",
+                categories.name AS "categoryName"
+            FROM games
+            INNER JOIN categories
+            ON games."categoryId" = categories.id
+            WHERE LOWER(games.name) LIKE LOWER($1)
+            `, [`${name}%`]);
             if (result.rowCount === 0) {
                 res.send(result.rows);
                 return;
@@ -96,23 +117,7 @@ app.post('/games', async (req, res) => {
         pricePerDay
     } = req.body;
 
-    const gameSchema = joi.object(
-        {
-            name: joi.string().min(1).required(),
-            image: joi.string().pattern(/(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png)/).required(),
-            stockTotal: joi.number().integer().min(1).required(),
-            categoryId: joi.number().integer().min(1).required(),
-            pricePerDay: joi.number().integer().min(1).required()
-        }
-    );
-
-    const { error } = gameSchema.validate({
-        name: name,
-        image: image,
-        stockTotal: stockTotal,
-        categoryId: categoryId,
-        pricePerDay: pricePerDay
-    });
+    const { error } = gameSchema.validate(req.body);
 
     if (error) {
         res.status(400).send(error.details[0].message);
@@ -202,23 +207,7 @@ app.post('/customers', async (req, res) => {
         birthday
     } = req.body;
 
-    const customerSchema = joi.object(
-        {
-            name: joi.string().min(1).required(),
-            phone: joi.string().pattern(/^[0-9]+$/).min(10).max(11).required(),
-            cpf: joi.string().pattern(/^[0-9]+$/).length(11).required(),
-            birthday: joi.date().iso().required()
-        }
-    );
-
-    const { error } = customerSchema.validate(
-        {
-            name: name,
-            phone: phone,
-            cpf: cpf,
-            birthday: birthday
-        }
-    );
+    const { error } = customerSchema.validate(req.body);
 
     if (error) {
         res.status(400).send(error.details[0].message);
@@ -232,7 +221,12 @@ app.post('/customers', async (req, res) => {
             return;
         }
 
-        await connection.query('INSERT INTO customers (name, phone, cpf, birthday) VALUES ($1, $2, $3, $4)', [name, phone, cpf, birthday]);
+        await connection.query(`
+        INSERT INTO customers
+            (name, phone, cpf, birthday)
+        VALUES
+            ($1, $2, $3, $4)
+        `, [name, phone, cpf, birthday]);
         res.sendStatus(201);
     } catch (error) {
         console.log(error);
@@ -250,23 +244,7 @@ app.put('/customers/:customerId', async (req, res) => {
         birthday
     } = req.body;
 
-    const updateCustomerSchema = joi.object(
-        {
-            name: joi.string().min(1).required(),
-            phone: joi.string().pattern(/^[0-9]+$/).min(10).max(11).required(),
-            cpf: joi.string().pattern(/^[0-9]+$/).length(11).required(),
-            birthday: joi.string().pattern(/^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$/).required()
-        }
-    );
-
-    const { error } = updateCustomerSchema.validate(
-        {
-            name: name,
-            phone: phone,
-            cpf: cpf,
-            birthday: birthday
-        }
-    );
+    const { error } = customerSchema.validate(req.body);
 
     if (error) {
         res.status(400).send(error.details[0].message);
@@ -280,7 +258,15 @@ app.put('/customers/:customerId', async (req, res) => {
             return;
         }
 
-        await connection.query('UPDATE customers SET name = $1, phone = $2, cpf = $3, birthday = $4 WHERE id = $5', [name, phone, cpf, birthday, customerId]);
+        await connection.query(`
+        UPDATE customers
+        SET
+            name = $1,
+            phone = $2,
+            cpf = $3,
+            birthday = $4
+        WHERE id = $5
+        `, [name, phone, cpf, birthday, customerId]);
         res.sendStatus(200);
     } catch (error) {
         console.log(error);
@@ -294,8 +280,24 @@ app.get('/rentals', async (req, res) => {
 
     try {
         const result = await connection.query('SELECT * FROM rentals');
-        const customerInfo = await connection.query('SELECT customers.id AS id, customers.name AS name FROM customers INNER JOIN rentals ON rentals."customerId" = customers.id');
-        const gameInfo = await connection.query('SELECT games.id, games.name, games."categoryId", categories.name AS "categoryName" FROM games INNER JOIN categories ON categories.id = games."categoryId"');
+        const customerInfo = await connection.query(`
+        SELECT
+            customers.id AS id,
+            customers.name AS name
+        FROM customers
+        INNER JOIN rentals
+        ON rentals."customerId" = customers.id
+        `);
+        const gameInfo = await connection.query(`
+        SELECT
+            games.id,
+            games.name,
+            games."categoryId",
+            categories.name AS "categoryName"
+        FROM games
+        INNER JOIN categories
+        ON categories.id = games."categoryId"
+        `);
         result.rows = result.rows.map(rental => ({
             id: rental.id,
             customerId: rental.customerId,
@@ -337,19 +339,7 @@ app.post('/rentals', async (req, res) => {
         daysRented
     } = req.body;
 
-    const rentalSchema = joi.object(
-        {
-            customerId: joi.number().min(1).required(),
-            gameId: joi.number().min(1).required(),
-            daysRented: joi.number().min(1).required()
-        }
-    );
-
-    const { error } = rentalSchema.validate({
-        customerId: customerId,
-        gameId: gameId,
-        daysRented: daysRented
-    })
+    const { error } = rentalSchema.validate(req.body);
 
     if (error) {
         res.status(400).send(error.details[0].message);
@@ -385,7 +375,12 @@ app.post('/rentals', async (req, res) => {
             delayFee: null
         }
 
-        await connection.query('INSERT INTO rentals ("customerId", "gameId", "rentDate", "daysRented", "returnDate", "originalPrice", "delayFee") VALUES ($1, $2, $3, $4, $5, $6, $7)', [body.customerId, body.gameId, body.rentDate, body.daysRented, body.returnDate, body.originalPrice, body.delayFee]);
+        await connection.query(`
+        INSERT INTO rentals
+            ("customerId", "gameId", "rentDate", "daysRented", "returnDate", "originalPrice", "delayFee")
+        VALUES
+            ($1, $2, $3, $4, $5, $6, $7)
+        `, [body.customerId, body.gameId, body.rentDate, body.daysRented, body.returnDate, body.originalPrice, body.delayFee]);
         res.sendStatus(201);
     } catch (error) {
         console.log(error);
@@ -396,13 +391,7 @@ app.post('/rentals', async (req, res) => {
 app.post('/rentals/:id/return', async (req, res) => {
     const rentalId = req.params.id;
 
-    const finishRentalSchema = joi.object(
-        {
-            rentalId: joi.number().min(1).required()
-        }
-    );
-
-    const { error } = finishRentalSchema.validate({ rentalId });
+    const { error } = idRentalSchema.validate({ rentalId });
 
     if (error) {
         res.status(400).send(error.details[0].message);
@@ -430,7 +419,13 @@ app.post('/rentals/:id/return', async (req, res) => {
         const daysDiff = Math.floor(((returnDate.getTime() - devolutionDate.getTime()) / (1000 * 60 * 60 * 24)));
         const delayFee = daysDiff * game.rows[0].pricePerDay;
 
-        await connection.query('UPDATE rentals SET "returnDate" = $1, "delayFee" = $2 WHERE id = $3', [returnDate.toLocaleDateString('en-CA'), delayFee <= 0 ? 0 : delayFee, rentalId]);
+        await connection.query(`
+        UPDATE rentals
+        SET
+            "returnDate" = $1,
+            "delayFee" = $2
+        WHERE id = $3
+        `, [returnDate.toLocaleDateString('en-CA'), delayFee <= 0 ? 0 : delayFee, rentalId]);
         res.sendStatus(200);
     } catch (error) {
         console.log(error);
@@ -441,13 +436,7 @@ app.post('/rentals/:id/return', async (req, res) => {
 app.delete('/rentals/:id', async (req, res) => {
     const rentalId = req.params.id;
 
-    const deleteRentalSchema = joi.object(
-        {
-            rentalId: joi.number().min(1).required()
-        }
-    );
-
-    const { error } = deleteRentalSchema.validate({ rentalId });
+    const { error } = idRentalSchema.validate({ rentalId });
 
     if (error) {
         res.status(400).send(error.details[0].message);

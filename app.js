@@ -74,7 +74,7 @@ app.get('/games', async (req, res) => {
         } else {
             const result = await connection.query('SELECT games.id AS id, games.name AS name, image, "stockTotal", "categoryId", "pricePerDay", categories.name AS "categoryName" FROM games INNER JOIN categories ON games."categoryId" = categories.id WHERE LOWER(games.name) LIKE LOWER($1)', [`${name}%`]);
             if (result.rowCount === 0) {
-                res.send('Não existem jogos registrados com este nome');
+                res.send(result.rows);
                 return;
             }
             res.send(result.rows);
@@ -146,14 +146,22 @@ app.get('/customers', async (req, res) => {
                 res.send('Nenhum cliente registrado');
                 return;
             }
+            result.rows = result.rows.map(customer => ({
+                ...customer,
+                birthday: new Date(customer.birthday).toLocaleDateString('en-CA')
+            }))
             res.send(result.rows);
             return;
         } else {
             const result = await connection.query('SELECT * FROM customers WHERE cpf LIKE $1', [`${cpf}%`]);
             if(result.rowCount === 0) {
-                res.send('Não existem clientes registrados com este CPF');
+                res.send(result.rows);
                 return;
             }
+            result.rows = result.rows.map(customer => ({
+                ...customer,
+                birthday: new Date(customer.birthday).toLocaleDateString('en-CA')
+            }))
             res.send(result.rows);
         }
     } catch {
@@ -170,7 +178,11 @@ app.get('/customers/:customerId', async (req, res) => {
             res.sendStatus(404);
             return;
         }
-        res.send(result.rows[0]);
+        result.rows = result.rows.map(customer => ({
+            ...customer,
+            birthday: new Date(customer.birthday).toLocaleDateString('en-CA')
+        }))
+        res.send(result.rows);
     } catch {
         res.sendStatus(500);
     }
@@ -263,6 +275,41 @@ app.put('/customers/:customerId', async (req, res) => {
 
         await connection.query('UPDATE customers SET name = $1, phone = $2, cpf = $3, birthday = $4 WHERE id = $5', [name, phone, cpf, birthday, customerId]);
         res.sendStatus(200);
+    } catch {
+        res.sendStatus(500);
+    }
+});
+
+app.get('/rentals', async (req, res) => {
+    const customerId = req.query.customerId;
+    const gameId = req.query.gameId;
+
+    try {
+        const result = await connection.query('SELECT * FROM rentals');
+        const customerInfo = await connection.query('SELECT customers.id AS id, customers.name AS name FROM customers INNER JOIN rentals ON rentals."customerId" = customers.id');
+        const gameInfo = await connection.query('SELECT games.id, games.name, games."categoryId", categories.name AS "categoryName" FROM games INNER JOIN categories ON categories.id = games."categoryId"');
+        result.rows = result.rows.map(rental => ({
+            ...rental,
+            rentDate: new Date(rental.rentDate).toLocaleDateString('en-CA'),
+            customer: customerInfo.rows.find(value => rental.customerId === value.id),
+            game: gameInfo.rows.find(value => rental.gameId === value.id)
+        }))
+        if (customerId !== undefined && gameId !== undefined) {
+            result.rows = result.rows.filter(value => value.customer.id === parseInt(customerId) && value.game.id === parseInt(gameId));
+            res.send(result.rows);
+            return;
+        }
+        if (customerId !== undefined && gameId === undefined) {
+            result.rows = result.rows.filter(value => value.customer.id === parseInt(customerId));
+            res.send(result.rows);
+            return;
+        }
+        if (gameId !== undefined && customerId === undefined) {
+            result.rows = result.rows.filter(value => value.game.id === parseInt(gameId));
+            res.send(result.rows);
+            return;
+        }
+        res.send(result.rows);
     } catch {
         res.sendStatus(500);
     }

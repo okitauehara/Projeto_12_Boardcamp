@@ -28,7 +28,8 @@ app.get('/categories', async (req, res) => {
             return;
         }
         res.send(result.rows);
-    } catch {
+    } catch (error) {
+        console.log(error);
         res.sendStatus(500);
     }
 });
@@ -55,7 +56,8 @@ app.post('/categories', async (req,res) => {
         }
         await connection.query('INSERT INTO categories (name) VALUES ($1)', [name]);
         res.sendStatus(201)
-    } catch {
+    } catch (error) {
+        console.log(error);
         res.sendStatus(500);
     }
 });
@@ -79,7 +81,8 @@ app.get('/games', async (req, res) => {
             }
             res.send(result.rows);
         }
-    } catch {
+    } catch (error) {
+        console.log(error);
         res.sendStatus(500);
     }
 });
@@ -131,7 +134,8 @@ app.post('/games', async (req, res) => {
 
         await connection.query(`INSERT INTO games (name, image, "stockTotal", "categoryId", "pricePerDay") VALUES ($1, $2, $3, $4, $5)`, [name, image, stockTotal, categoryId, pricePerDay]);
         res.sendStatus(201)
-    } catch {
+    } catch (error) {
+        console.log(error);
         res.sendStatus(500)
     }
 });
@@ -164,7 +168,8 @@ app.get('/customers', async (req, res) => {
             }))
             res.send(result.rows);
         }
-    } catch {
+    } catch (error) {
+        console.log(error);
         res.sendStatus(500);
     }
 });
@@ -183,7 +188,8 @@ app.get('/customers/:customerId', async (req, res) => {
             birthday: new Date(customer.birthday).toLocaleDateString('en-CA')
         }))
         res.send(result.rows);
-    } catch {
+    } catch (error) {
+        console.log(error);
         res.sendStatus(500);
     }
 });
@@ -228,7 +234,8 @@ app.post('/customers', async (req, res) => {
 
         await connection.query('INSERT INTO customers (name, phone, cpf, birthday) VALUES ($1, $2, $3, $4)', [name, phone, cpf, birthday]);
         res.sendStatus(201);
-    } catch {
+    } catch (error) {
+        console.log(error);
         res.sendStatus(500);
     }
 });
@@ -275,7 +282,8 @@ app.put('/customers/:customerId', async (req, res) => {
 
         await connection.query('UPDATE customers SET name = $1, phone = $2, cpf = $3, birthday = $4 WHERE id = $5', [name, phone, cpf, birthday, customerId]);
         res.sendStatus(200);
-    } catch {
+    } catch (error) {
+        console.log(error);
         res.sendStatus(500);
     }
 });
@@ -310,7 +318,71 @@ app.get('/rentals', async (req, res) => {
             return;
         }
         res.send(result.rows);
-    } catch {
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+});
+
+app.post('/rentals', async (req, res) => {
+    const {
+        customerId,
+        gameId,
+        daysRented
+    } = req.body;
+
+    const rentalSchema = joi.object(
+        {
+            customerId: joi.number().min(1).required(),
+            gameId: joi.number().min(1).required(),
+            daysRented: joi.number().min(1).required()
+        }
+    );
+
+    const { error } = rentalSchema.validate({
+        customerId: customerId,
+        gameId: gameId,
+        daysRented: daysRented
+    })
+
+    if (error) {
+        res.status(400).send(error.details[0].message);
+        return;
+    }
+
+    try {
+        const customerCheck = await connection.query('SELECT id FROM customers WHERE id = $1', [customerId]);
+        if (customerCheck.rowCount === 0) {
+            res.sendStatus(400);
+            return;
+        }
+
+        const gameCheck = await connection.query('SELECT * FROM games WHERE id = $1', [gameId]);
+        if (gameCheck.rowCount === 0) {
+            res.sendStatus(400);
+            return;
+        }
+
+        const gameAvailabilityCheck = await connection.query('SELECT * FROM rentals WHERE "gameId" = $1', [gameId]);
+        if (gameAvailabilityCheck.rowCount >= gameCheck.rows[0].stockTotal) {
+            res.sendStatus(400);
+            return;
+        }
+
+        const body = {
+            customerId,
+            gameId,
+            rentDate: new Date().toLocaleDateString('en-CA'),
+            daysRented,
+            returnDate: null,
+            originalPrice: (gameCheck.rows[0].pricePerDay * daysRented),
+            delayFee: null
+        }
+
+        await connection.query('INSERT INTO rentals ("customerId", "gameId", "rentDate", "daysRented", "returnDate", "originalPrice", "delayFee") VALUES ($1, $2, $3, $4, $5, $6, $7)', [body.customerId, body.gameId, body.rentDate, body.daysRented, body.returnDate, body.originalPrice, body.delayFee]);
+        res.sendStatus(201);
+    } catch (error) {
+        console.log(error);
         res.sendStatus(500);
     }
 });

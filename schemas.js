@@ -25,17 +25,23 @@ const customerSchema = joi.object(
     }
 );
 
+const idCustomerSchema = joi.object(
+    {
+        customerId: joi.number().integer().min(1).required()
+    }
+);
+
 const rentalSchema = joi.object(
     {
-        customerId: joi.number().min(1).required(),
-        gameId: joi.number().min(1).required(),
-        daysRented: joi.number().min(1).required()
+        customerId: joi.number().integer().min(1).required(),
+        gameId: joi.number().integer().min(1).required(),
+        daysRented: joi.number().integer().min(1).required()
     }
 );
 
 const idRentalSchema = joi.object(
     {
-        rentalId: joi.number().min(1).required()
+        rentalId: joi.number().integer().min(1).required()
     }
 );
 
@@ -44,6 +50,7 @@ export {
     categorySchema,
     gameSchema,
     customerSchema,
+    idCustomerSchema,
     rentalSchema,
     idRentalSchema
 }

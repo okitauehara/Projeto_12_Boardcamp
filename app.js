@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import pg from 'pg';
-import { categorySchema, gameSchema, customerSchema, rentalSchema, idRentalSchema } from './schemas.js';
+import { categorySchema, gameSchema, customerSchema, idCustomerSchema, rentalSchema, idRentalSchema } from './schemas.js';
 
 const app = express();
 
@@ -180,7 +180,14 @@ app.get('/customers', async (req, res) => {
 });
 
 app.get('/customers/:customerId', async (req, res) => {
-    const customerId = parseInt(req.params.customerId);
+    const customerId = req.params.customerId;
+
+    const { error } = idCustomerSchema.validate({ customerId });
+
+    if (error) {
+        res.status(400).send(error.details[0].message);
+        return;
+    }
 
     try {
         const result = await connection.query('SELECT * FROM customers WHERE id = $1', [customerId]);
@@ -235,7 +242,7 @@ app.post('/customers', async (req, res) => {
 });
 
 app.put('/customers/:customerId', async (req, res) => {
-    const customerId = parseInt(req.params.customerId);
+    const customerId = req.params.customerId;
 
     const {
         name,
@@ -244,7 +251,7 @@ app.put('/customers/:customerId', async (req, res) => {
         birthday
     } = req.body;
 
-    const { error } = customerSchema.validate(req.body);
+    const { error } = customerSchema.validate(req.body) && idCustomerSchema.validate({ customerId });
 
     if (error) {
         res.status(400).send(error.details[0].message);
@@ -252,7 +259,7 @@ app.put('/customers/:customerId', async (req, res) => {
     }
 
     try {
-        const cpfCheck = await connection.query('SELECT cpf FROM customers WHERE cpf = $1', [cpf]);
+        const cpfCheck = await connection.query('SELECT cpf FROM customers WHERE cpf = $1 AND id <> $2', [cpf, customerId]);
         if (cpfCheck.rowCount > 0) {
             res.sendStatus(409);
             return;

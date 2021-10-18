@@ -23,10 +23,6 @@ const connection = new Pool(
 app.get('/categories', async (req, res) => {
     try {
         const result = await connection.query('SELECT * FROM categories');
-        if (result.rowCount === 0) {
-            res.send('Nenhuma categoria registrada');
-            return;
-        }
         res.send(result.rows);
     } catch (error) {
         console.log(error);
@@ -76,10 +72,6 @@ app.get('/games', async (req, res) => {
             INNER JOIN categories
             ON games."categoryId" = categories.id
             `);
-            if (result.rowCount === 0) {
-                res.send('Nenhum jogo registrado');
-                return;
-            }
             res.send(result.rows);
         } else {
             const result = await connection.query(`
@@ -96,10 +88,6 @@ app.get('/games', async (req, res) => {
             ON games."categoryId" = categories.id
             WHERE LOWER(games.name) LIKE LOWER($1)
             `, [`${name}%`]);
-            if (result.rowCount === 0) {
-                res.send(result.rows);
-                return;
-            }
             res.send(result.rows);
         }
     } catch (error) {
@@ -152,7 +140,7 @@ app.get('/customers', async (req, res) => {
         if (cpf === undefined) {
             const result = await connection.query('SELECT * FROM customers');
             if(result.rowCount === 0) {
-                res.send('Nenhum cliente registrado');
+                res.send(result.rows);
                 return;
             }
             result.rows = result.rows.map(customer => ({
@@ -305,6 +293,12 @@ app.get('/rentals', async (req, res) => {
         INNER JOIN categories
         ON categories.id = games."categoryId"
         `);
+
+        if (result.rowCount === 0) {
+            res.send(result.rows);
+            return;
+        }
+
         result.rows = result.rows.map(rental => ({
             id: rental.id,
             customerId: rental.customerId,
